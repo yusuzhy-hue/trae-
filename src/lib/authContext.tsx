@@ -11,11 +11,14 @@ export interface User {
   grade: string
   phone: string
   avatar?: string
+  password?: string
 }
 
 interface AuthContextType {
   user: User | null
-  login: (userData: User) => void
+  login: (userData: User, remember?: boolean) => void
+  register: (userData: User, remember?: boolean) => void
+  checkUser: (phone: string) => User | null
   logout: () => void
   isLoading: boolean
 }
@@ -27,31 +30,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Check localStorage on mount
-    const storedUser = localStorage.getItem('ai_platform_user')
+    // Check localStorage then sessionStorage on mount
+    const localUser = localStorage.getItem('ai_platform_user')
+    const sessionUser = sessionStorage.getItem('ai_platform_user')
+    
+    const storedUser = localUser || sessionUser
+    
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser))
       } catch (error) {
         console.error('Failed to parse user data:', error)
         localStorage.removeItem('ai_platform_user')
+        sessionStorage.removeItem('ai_platform_user')
       }
     }
     setIsLoading(false)
   }, [])
 
-  const login = (userData: User) => {
+  const login = (userData: User, remember: boolean = true) => {
     setUser(userData)
-    localStorage.setItem('ai_platform_user', JSON.stringify(userData))
+    if (remember) {
+      localStorage.setItem('ai_platform_user', JSON.stringify(userData))
+      sessionStorage.removeItem('ai_platform_user')
+    } else {
+      sessionStorage.setItem('ai_platform_user', JSON.stringify(userData))
+      localStorage.removeItem('ai_platform_user')
+    }
+  }
+
+  const register = (userData: User, remember: boolean = true) => {
+    // 1. Get existing users
+    const existingUsersStr = localStorage.getItem('ai_platform_registered_users')
+    const existingUsers: User[] = existingUsersStr ? JSON.parse(existingUsersStr) : []
+    
+    // 2. Check if user already exists (by phone)
+    const userIndex = existingUsers.findIndex(u => u.phone === userData.phone)
+    if (userIndex >= 0) {
+      // Update existing user
+      existingUsers[userIndex] = userData
+    } else {
+      // Add new user
+      existingUsers.push(userData)
+    }
+    
+    // 3. Save back to storage
+    localStorage.setItem('ai_platform_registered_users', JSON.stringify(existingUsers))
+    
+    // 4. Log the user in
+    login(userData, remember)
+  }
+
+  const checkUser = (phone: string): User | null => {
+    const existingUsersStr = localStorage.getItem('ai_platform_registered_users')
+    const existingUsers: User[] = existingUsersStr ? JSON.parse(existingUsersStr) : []
+    return existingUsers.find(u => u.phone === phone) || null
   }
 
   const logout = () => {
     setUser(null)
     localStorage.removeItem('ai_platform_user')
+    sessionStorage.removeItem('ai_platform_user')
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, register, checkUser, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   )

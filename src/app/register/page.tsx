@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/authContext'
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { login } = useAuth()
+  const { register, checkUser } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [role, setRole] = useState<'student' | 'teacher'>('student')
@@ -20,6 +20,7 @@ export default function RegisterPage() {
     name: '',
     grade: '',
     phone: '',
+    password: '',
     code: ''
   })
 
@@ -27,6 +28,19 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
     setIsLoading(true)
+
+    // Check if user already exists
+    if (checkUser(formData.phone)) {
+      setError('该手机号已注册，请直接登录')
+      setIsLoading(false)
+      return
+    }
+
+    if (!formData.password || formData.password.length < 6) {
+        setError('请输入至少6位数的密码')
+        setIsLoading(false)
+        return
+    }
 
     // Validate activation code
     let userType: 'Trial' | 'Member' = 'Trial'
@@ -50,7 +64,7 @@ export default function RegisterPage() {
     await new Promise(resolve => setTimeout(resolve, 1500))
 
     // Save user data via AuthContext
-    login({
+    register({
       name: formData.name,
       school: formData.school,
       role: role,
@@ -58,6 +72,7 @@ export default function RegisterPage() {
       expiryDate: expiryDate,
       grade: formData.grade,
       phone: formData.phone,
+      password: formData.password,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.name}` // Generate avatar based on name
     })
 
@@ -198,6 +213,22 @@ export default function RegisterPage() {
                     placeholder="请输入手机号码" 
                     className="border-white/10 bg-black/20 pl-10 text-white placeholder:text-gray-500 focus:border-blue-500/50 focus:ring-blue-500/20"
                     value={formData.phone}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-400 ml-1">设置密码</label>
+                <div className="relative">
+                  <Key className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                  <Input 
+                    name="password"
+                    type="password"
+                    required
+                    placeholder="请设置登录密码（至少6位）" 
+                    className="border-white/10 bg-black/20 pl-10 text-white placeholder:text-gray-500 focus:border-blue-500/50 focus:ring-blue-500/20"
+                    value={formData.password}
                     onChange={handleChange}
                   />
                 </div>
